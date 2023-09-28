@@ -103,9 +103,16 @@ def image_linker(html):
     return str(soup)
 
 
-def get_or_save_image(src, legacy_id=None):
+def get_or_save_image(src, title=None, legacy_id=None):
     image_file_name = get_image_file_name(src)
-    existing_image = image_exists(image_file_name)
+    if legacy_id:
+        try:
+            existing_image = ImportedImage.objects.get(wp_legacy_id=legacy_id)
+        except ImportedImage.DoesNotExist:
+            existing_image = image_exists(image_file_name)
+    else:
+        existing_image = image_exists(image_file_name)
+
     if not existing_image:
         response, valid, type = fetch_url(src)
         if valid and (
@@ -126,7 +133,8 @@ def get_or_save_image(src, legacy_id=None):
             temp_image.write(response.content)
             temp_image.flush()
             retrieved_image = ImportedImage(
-                file=File(file=temp_image), title=image_file_name, wp_legacy_id=legacy_id,
+                file=File(file=temp_image), title=title or image_file_name, wp_legacy_id=legacy_id,
+                collection_id=settings.WP_IMPORT_COLLECTION_ID
             )
             retrieved_image.save()
             temp_image.close()
@@ -208,7 +216,8 @@ def get_or_save_document(href):
                 temp_document.write(response.content)
                 temp_document.flush()
                 retrieved_document = ImportedDocument(
-                    file=File(file=temp_document), title=document_file_name
+                    file=File(file=temp_document), title=document_file_name,
+                    collection_id=settings.WP_IMPORT_COLLECTION_ID
                 )
                 retrieved_document.save()
                 temp_document.close()
