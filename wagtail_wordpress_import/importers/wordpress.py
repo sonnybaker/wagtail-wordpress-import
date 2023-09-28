@@ -119,7 +119,18 @@ class WordpressImporter:
                     except self.page_model_class.DoesNotExist:
                         try:
                             page = self.page_model_class.objects.get(
-                                slug=wordpress_item.cleaned_data.get("wp:post_name")
+                                slug=wordpress_item.cleaned_data['wp_post_meta']['wp_post_name']
+                            )
+                            self.logger.items.append(
+                                {
+                                    "id": page.id,
+                                    "title": page.title,
+                                    "link": item.get("link"),
+                                    "result": "updated",
+                                    "reason": "pre_existed",
+                                    "datecheck": wordpress_item.date_changed,
+                                    "slugcheck": wordpress_item.slug_changed,
+                                }
                             )
                         except self.page_model_class.DoesNotExist:
                             page = self.page_model_class()
@@ -160,20 +171,33 @@ class WordpressImporter:
                             }
                         )
                     else:
-                        self.parent_page_obj.add_child(instance=page)
-                        page.save()
-                        self.logger.imported += 1
-                        self.logger.items.append(
-                            {
-                                "id": page.id,
-                                "title": page.title,
-                                "link": item.get("link"),
-                                "result": "created",
-                                "reason": "existed",
-                                "datecheck": wordpress_item.date_changed,
-                                "slugcheck": wordpress_item.slug_changed,
-                            }
-                        )
+                        try:
+                            self.parent_page_obj.add_child(instance=page)
+                            page.save()
+                            self.logger.imported += 1
+                            self.logger.items.append(
+                                {
+                                    "id": page.id,
+                                    "title": page.title,
+                                    "link": item.get("link"),
+                                    "result": "created",
+                                    "reason": "existed",
+                                    "datecheck": wordpress_item.date_changed,
+                                    "slugcheck": wordpress_item.slug_changed,
+                                }
+                            )
+                        except Exception as e:
+                            self.logger.items.append(
+                                {
+                                    "id": page.wp_post_id,
+                                    "title": page.title,
+                                    "link": page.wp_link,
+                                    "result": "failed",
+                                    "reason": str(e),
+                                    "datecheck": "",
+                                    "slugcheck": "",
+                                }
+                            )
 
                     self.imported_page_ids.append(page.id)
 
@@ -310,8 +334,7 @@ class WordpressImporter:
         except self.page_model_class.DoesNotExist:
             pass
         except self.page_model_class.MultipleObjectsReturned:
-            print(f'MULTIPLE RETURNED: {page} - {link}')
-            pass
+            return self.page_model_class.objects.filter(wp_link=link).first()
 
     def connect_page_categories(self, page, category_model, item):
         if "category" in item.keys():
