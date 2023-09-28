@@ -1,14 +1,6 @@
 import copy
 import json
 from datetime import datetime
-
-from wagtail import VERSION as WAGTAIL_VERSION
-
-try:
-    from functools import cached_property
-except ImportError:
-    from cached_property import cached_property
-
 from xml.dom import pulldom
 
 from bs4 import BeautifulSoup
@@ -17,30 +9,30 @@ from django.conf import settings
 from django.utils.module_loading import import_string
 from django.utils.text import slugify
 from django.utils.timezone import make_aware
+from wagtail import VERSION as WAGTAIL_VERSION
+from wagtail_wordpress_import.block_builder import BlockBuilder
+from wagtail_wordpress_import.functions import (get_attr_as_list, node_to_dict,
+                                                snakecase_key)
+from wagtail_wordpress_import.importers.import_hooks import (ItemsCache,
+                                                             TagsCache)
+from wagtail_wordpress_import.importers.wordpress_defaults import (
+    category_name_min_length, category_plugin_enabled, debug_enabled,
+    get_category_model, yoast_plugin_config, yoast_plugin_enabled)
+from wagtail_wordpress_import.prefilters.linebreaks_wp_filter import \
+    filter_linebreaks_wp
+
+try:
+    from functools import cached_property
+except ImportError:
+    from cached_property import cached_property
+
+
 
 if WAGTAIL_VERSION >= (3, 0):
     from wagtail.models import Page
 else:
     from wagtail.core.models import Page
 
-from wagtail_wordpress_import.block_builder import BlockBuilder
-from wagtail_wordpress_import.functions import (
-    get_attr_as_list,
-    node_to_dict,
-    snakecase_key,
-)
-from wagtail_wordpress_import.importers.import_hooks import ItemsCache, TagsCache
-from wagtail_wordpress_import.importers.wordpress_defaults import (
-    category_name_min_length,
-    category_plugin_enabled,
-    debug_enabled,
-    get_category_model,
-    yoast_plugin_config,
-    yoast_plugin_enabled,
-)
-from wagtail_wordpress_import.prefilters.linebreaks_wp_filter import (
-    filter_linebreaks_wp,
-)
 
 DEFAULT_PREFILTERS = [
     {
@@ -125,7 +117,12 @@ class WordpressImporter:
                             wp_post_id=wordpress_item.cleaned_data.get("wp_post_id")
                         )
                     except self.page_model_class.DoesNotExist:
-                        page = self.page_model_class()
+                        try:
+                            page = self.page_model_class.objects.get(
+                                slug=wordpress_item.cleaned_data.get("wp_post_name")
+                            )
+                        except self.page_model_class.DoesNotExist:
+                            page = self.page_model_class()
 
                     # add categories for this page if categories plugin is enabled
                     if category_plugin_enabled() and get_category_model():
@@ -311,6 +308,9 @@ class WordpressImporter:
                 self.logger.page_link_errors.append((link, page))
             return self.page_model_class.objects.get(wp_link=link)
         except self.page_model_class.DoesNotExist:
+            pass
+        except self.page_model_class.MultipleObjectsReturned:
+            print(f'MULTIPLE RETURNED: {page} - {link}')
             pass
 
     def connect_page_categories(self, page, category_model, item):

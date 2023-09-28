@@ -1,12 +1,10 @@
 from bs4 import BeautifulSoup
 from django.conf import settings
 from django.utils.module_loading import import_string
-
 from wagtail_wordpress_import.block_builder_defaults import (
-    conf_fallback_block,
-    conf_html_tags_to_blocks,
-)
-from wagtail_wordpress_import.prefilters.handle_shortcodes import SHORTCODE_HANDLERS
+    conf_fallback_block, conf_html_tags_to_blocks)
+from wagtail_wordpress_import.prefilters.handle_shortcodes import \
+    SHORTCODE_HANDLERS
 
 
 def conf_promote_child_tags():
@@ -51,7 +49,10 @@ class BlockBuilder:
             promotees = self.soup.findAll(promotee)
             for promotee in promotees:
                 if promotee.parent.name in removee_tags:
-                    promotee.parent.replace_with(promotee)
+                    try:
+                        promotee.parent.replace_with(promotee)
+                    except Exception as e:
+                        print(e)
 
     def get_builder_function(self, element):
         """

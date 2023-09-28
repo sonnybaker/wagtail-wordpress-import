@@ -103,7 +103,7 @@ def image_linker(html):
     return str(soup)
 
 
-def get_or_save_image(src):
+def get_or_save_image(src, legacy_id=None):
     image_file_name = get_image_file_name(src)
     existing_image = image_exists(image_file_name)
     if not existing_image:
@@ -126,10 +126,11 @@ def get_or_save_image(src):
             temp_image.write(response.content)
             temp_image.flush()
             retrieved_image = ImportedImage(
-                file=File(file=temp_image), title=image_file_name
+                file=File(file=temp_image), title=image_file_name, wp_legacy_id=legacy_id,
             )
             retrieved_image.save()
             temp_image.close()
+            print(retrieved_image)
             return retrieved_image
         else:
             print(f"RECEIVED INVALID IMAGE RESPONSE: {src}")
@@ -252,10 +253,9 @@ def build_iframe_block(tag):
 
 
 def build_image_block(tag):
-    def get_image_id(src):
-        return 1
+    obj = get_or_save_image(tag['src'])
 
-    block_dict = {"type": "image", "value": get_image_id(tag.src)}
+    block_dict = {"type": "image", "value": {'image': obj.id}}
     return block_dict
 
 
