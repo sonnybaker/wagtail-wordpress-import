@@ -119,7 +119,7 @@ class WordpressImporter:
                     except self.page_model_class.DoesNotExist:
                         try:
                             page = self.page_model_class.objects.get(
-                                slug=wordpress_item.cleaned_data.get("wp_post_name")
+                                slug=wordpress_item.cleaned_data.get("wp:post_name")
                             )
                         except self.page_model_class.DoesNotExist:
                             page = self.page_model_class()
